@@ -1,154 +1,160 @@
 # Discord Image Approval Bot
 
-A Discord bot that automates image submission approval and rejection workflows using reactions.
+A Discord bot for OSRS clans that automates drop screenshot approvals and rejections using emoji reactions. Approved screenshots are reposted to team and admin channels, logged to Google Sheets, and tagged by category via an interactive dropdown.
+
+---
+
+## How It Works
+
+1. A member posts a drop screenshot in a configured source channel
+2. An authorized staff member reacts with ✅ or ❌
+3. **On approval** — the bot reposts the image to the team channel and admin review channel, then logs the entry to Google Sheets
+4. **On rejection** — the bot DMs the staff member asking for a reason, then posts the image to the rejected channel and notifies the submitter
+5. An admin selects a loot category from the dropdown on the admin post (e.g. *Raid Purples*, *Zulrah Uniques*) — the bot updates Google Sheets and deletes the admin post
+
+---
 
 ## Features
 
-- Approve images with ✅ reaction
-- Reject images with ❌ reaction + required reason
-- Reposts approved images to team and admin channels
-- Deletes images in "to-be-done" channels after verification of copying/reposting in approved channels
-- Logs approvals to Google Sheets
-- Category dropdown tagging (admin only)
-- Handles attachments and embed images
-- Extracts submitter info automatically
+- Emoji-based approval and rejection workflow
+- Rejection reason collected via DM before any action is taken
+- Parallel reposting to team channel and admin review channel
+- Google Sheets logging via Google Apps Script webhook
+- Category tagging via interactive dropdown (admin-only)
+- Handles both file attachments and embed-based images (Dink / Captain Hook bot support)
+- Extracts in-game player names from bot embeds and resolves them to Discord members
+- Processing lock to prevent duplicate handling of the same message
+- Automatic cleanup of reposted messages on workflow failure
+
+---
 
 ## Tech Stack
 
-- Python
-- discord.py
-- aiohttp
-- Google Apps Script webhook
+| Layer | Tool |
+|---|---|
+| Language | Python 3.10+ |
+| Discord API | [discord.py](https://github.com/Rapptz/discord.py) |
+| HTTP client | [aiohttp](https://docs.aiohttp.org/) |
+| Logging | Google Apps Script webhook → Google Sheets |
+| Config | `.env` via `python-dotenv` |
+
+---
 
 ## Setup
 
-1. Install dependencies:
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/your-username/your-repo.git
+cd your-repo
+```
+
+### 2. Install dependencies
+
 ```bash
 pip install -r requirements.txt
+```
 
-## System Workflow
+### 3. Configure environment variables
 
-The bot operates as an event-driven moderation pipeline built around Discord reactions and asynchronous processing.
-
----
-
-### 1. Submission Phase
-
-- Users submit images (attachments or embeds) in designated source channels.
-- The bot does not actively poll messages; it reacts only to Discord events.
-
----
-
-### 2. Trigger Phase (Reaction Listener)
-
-- Staff react to a message with:
-  - ✅ for approval
-  - ❌ for rejection
-- The bot listens via `on_raw_reaction_add` to capture reactions even on uncached messages.
-
----
-
-### 3. Validation Layer
-
-When a reaction is detected, the bot performs a series of checks:
-
-- Verifies the reaction comes from an allowed source channel
-- Confirms the emoji matches configured approval/rejection rules
-- Validates the user has moderation permissions (role-based or admin)
-- Prevents duplicate processing using a lock + message tracking
-
----
-
-### 4. Image Extraction Layer
-
-The bot determines the image source:
-
-- Priority 1: Direct message attachments
-- Priority 2: Embedded images (proxy URL or thumbnail fallback)
-
-This allows compatibility with both user uploads and bot-generated embeds.
-
----
-
-### 5. Approval Pipeline
-
-If approved (✅):
-
-- Image is downloaded asynchronously
-- Submitter metadata is extracted (user or bot-originated)
-- Image is reposted to:
-  - Team channel (primary storage)
-  - Admin review channel (audit trail)
-- A structured embed is generated containing:
-  - Approver identity
-  - Submitter identity
-  - Source channel metadata
-  - Timestamp tracking (Discord snowflake time)
-- Event is logged to Google Sheets via webhook
-- Original message is deleted after successful processing
-
----
-
-### 6. Rejection Pipeline
-
-If rejected (❌):
-
-- Moderator is prompted via DM to provide a rejection reason
-- The bot waits for structured input with timeout protection
-- Image is downloaded and reposted to a rejection archive channel
-- Embed includes:
-  - Rejector identity
-  - Reason for rejection
-  - Original submission metadata
-- Original message is deleted after successful processing
-
----
-
-### 7. External Integration Layer
-
-The bot integrates with Google Sheets through a webhook:
-
-- Logs approvals with:
-  - submitter
-  - approver
-  - timestamp
-  - destination message URL
-- Enables external auditing and tracking outside Discord
-
----
-
-### 8. Concurrency & Safety Controls
-
-To prevent race conditions:
-
-- Per-message processing lock (`asyncio.Lock`)
-- In-memory message tracking set
-- Graceful failure handling with cleanup rollback
-- Permission validation before destructive actions
-
----
-
-## Architecture Summary
-
-## Setup & Configuration
-
-This project requires a small amount of local configuration to connect the bot to Discord and external services.
-
----
-
-### 1. Environment Variables
-
-Create a `.env` file in the project root.
-
-This file stores all sensitive credentials and environment-specific configuration.
+Copy `.env.example` to `.env` and fill in the values:
 
 ```env
-DISCORD_TOKEN=your_discord_bot_token
+DISCORD_TOKEN=your_bot_token
 
-SOURCE_CHANNEL_IDS=123456789,987654321
-ADMIN_APPROVAL_CHANNEL_ID=123456789
-REJECTED_CHANNEL_ID=123456789
+# Comma-separated channel IDs where members post screenshots
+SOURCE_CHANNEL_IDS=111111111111,222222222222
 
-TEAM_DESTINATION_MAP=source_channel_id:team_channel_id
+# Channel where admin review reposts are sent
+ADMIN_APPROVAL_CHANNEL_ID=333333333333
 
-GOOGLE_APPS_SCRIPT_WEBHOOK_URL=your_google_apps_script_url
+# Channel where rejected screenshots are posted
+REJECTED_CHANNEL_ID=444444444444
+
+# Maps each source channel to a team destination channel: sourceId:destId,...
+TEAM_DESTINATION_MAP=111111111111:555555555555,222222222222:666666666666
+
+# Emoji used for approval and rejection
+APPROVAL_EMOJI=✅
+REJECTION_EMOJI=❌
+
+# Comma-separated role IDs allowed to approve/reject/categorize
+APPROVAL_ROLE_IDS=777777777777,888888888888
+
+# Google Apps Script web app URL
+GOOGLE_APPS_SCRIPT_WEBHOOK_URL=https://script.google.com/macros/s/.../exec
+
+# Seconds to wait for a rejection reason via DM (default: 900)
+REJECTION_REASON_TIMEOUT_SECONDS=900
+```
+
+### 4. Run the bot
+
+```bash
+python bot.py
+```
+
+---
+
+## Required Bot Permissions
+
+| Permission | Reason |
+|---|---|
+| Read Messages / View Channels | Monitor source channels |
+| Send Messages | Post to team, admin, and rejected channels |
+| Manage Messages | Delete original messages after approval/rejection |
+| Embed Links | Send approval/rejection embeds |
+| Attach Files | Repost images |
+| Add Reactions | (optional) Reaction feedback |
+| Read Message History | Fetch original messages |
+| Members Intent | Resolve player names to Discord members |
+
+Enable the following **Privileged Gateway Intents** in the Discord Developer Portal:
+- `SERVER MEMBERS INTENT`
+- `MESSAGE CONTENT INTENT`
+
+---
+
+## Google Sheets Integration
+
+The bot calls a Google Apps Script webhook with two action types:
+
+**On approval:**
+```json
+{
+  "messageSentAt": "<ISO 8601 timestamp>",
+  "Admin": "<approver display name>",
+  "originalAuthor": "<submitter display name>",
+  "sourceChannelName": "<channel name>",
+  "newMessageUrl": "<team channel message URL>",
+  "category": ""
+}
+```
+
+**On category selection:**
+```json
+{
+  "action": "updateCategory",
+  "newMessageUrl": "<team channel message URL>",
+  "category": "<selected category>"
+}
+```
+
+Your Apps Script should handle both payloads and update the corresponding row.
+
+---
+
+## Supported Drop Categories
+
+<details>
+<summary>View all categories</summary>
+
+Zalcano Shards · Gauntlet Seeds · Spirit Shields · Yama Uniques · DK Rings · Nightmare Uniques · Godsword Shards · Zulrah Uniques · Nex Uniques · Barrows and Moons · Raid Purples · Dragon Pickaxes · Virtus Pieces · Vorkath Heads · Unique Pets/Jars · Tome of Fire · Tome of Water · Tome of Earth · Blessings · Venator Shards · Doom Uniques · Elemental Staff Crowns
+
+</details>
+
+---
+
+## License
+
+MIT
