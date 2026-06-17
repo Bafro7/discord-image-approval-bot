@@ -129,3 +129,26 @@ To prevent race conditions:
 ---
 
 ## Architecture Summary
+
+## Setup & Configuration
+
+This project requires a small amount of local configuration to connect the bot to Discord and external services.
+
+---
+
+### 1. Environment Variables
+
+Create a `.env` file in the project root.
+
+This file stores all sensitive credentials and environment-specific configuration.
+
+```env
+DISCORD_TOKEN=your_discord_bot_token
+
+SOURCE_CHANNEL_IDS=123456789,987654321
+ADMIN_APPROVAL_CHANNEL_ID=123456789
+REJECTED_CHANNEL_ID=123456789
+
+TEAM_DESTINATION_MAP=source_channel_id:team_channel_id
+
+GOOGLE_APPS_SCRIPT_WEBHOOK_URL=your_google_apps_script_url
