@@ -7,6 +7,7 @@ A Discord bot that automates image submission approval and rejection workflows u
 - Approve images with ✅ reaction
 - Reject images with ❌ reaction + required reason
 - Reposts approved images to team and admin channels
+- Deletes images in "to-be-done" channels after verification of copying/reposting in approved channels
 - Logs approvals to Google Sheets
 - Category dropdown tagging (admin only)
 - Handles attachments and embed images
